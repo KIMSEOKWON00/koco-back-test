@@ -71,7 +71,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           FULL_REPO="$ECR_HOST/$ECR_REPO_NAME"
-          echo "🔐 Logging in to Amazon ECR at $FULL_REPO..."
+          echo "🔐  in to Amazon ECR at $FULL_REPO..."
           aws ecr get-login-password --region $AWS_REGION \
             | docker login --username AWS --password-stdin $ECR_HOST
 
@@ -137,8 +137,7 @@ jobs:
                 - redis
               env_file:
                 - .env
-              volumes:
-                - /home/ubuntu/logs:/app/logs
+
           EOF
 
           # deploy.sh (인스턴스에서 사용할 변수 바인딩)
@@ -169,7 +168,7 @@ jobs:
               echo "\$key=\$value" >> .env
             done
 
-          echo "[INFO] Logging in to ECR (\$ECR_HOST)..."
+          echo "[INFO]  in to ECR (\$ECR_HOST)..."
           aws ecr get-login-password --region "\$AWS_REGION" \
             | docker login --username AWS --password-stdin "\$ECR_HOST"
 
