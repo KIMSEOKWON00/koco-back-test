@@ -36,6 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 기존 예외 경로들
         return path.equals("/api/backend/v1/auth/refresh")
             || path.equals("/api/backend/v1/auth/callback")
+            || path.equals("/oauth/kakao/callback")
             || path.equals("/swagger-ui/index.html#/");
     }
 
