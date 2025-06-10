@@ -7,7 +7,7 @@ import icet.koco.problemSet.dto.ProblemSetResponseDto;
 import icet.koco.problemSet.dto.ProblemSolutionResponseDto;
 import icet.koco.problemSet.service.ProblemSetService;
 import java.time.LocalDate;
-
+import lombok.extern.slf4j.Slf4j;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Slf4j
 @RequiredArgsConstructor
 @Tag(name = "ProblemSet", description = "문제집 관련 API")
 @RequestMapping("/api/backend/v1/problem-set")
@@ -60,10 +61,11 @@ public class ProblemSetController {
         }
 
         ProblemSolutionResponseDto dto = problemSetService.getProblemSolution(problemNumber);
+
+        log.info(">>>>>>>>해설조회성공<<<<<<<<<<");
         return ResponseEntity.ok(
             ApiResponse.success(ApiResponseCode.SUCCESS, "문제 해설 조회에 성공하였습니다.", dto)
         );
 
-        log.info(">>>>>>>>해설조회성공<<<<<<<<<<");
     }
 }
