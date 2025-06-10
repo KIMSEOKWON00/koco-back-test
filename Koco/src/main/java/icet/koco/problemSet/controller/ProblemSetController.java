@@ -63,5 +63,7 @@ public class ProblemSetController {
         return ResponseEntity.ok(
             ApiResponse.success(ApiResponseCode.SUCCESS, "문제 해설 조회에 성공하였습니다.", dto)
         );
+
+        log.info(">>>>>>>>해설조회성공<<<<<<<<<<");
     }
 }

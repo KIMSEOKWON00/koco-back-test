@@ -4,13 +4,10 @@ services:
   redis:
     image: redis:7.2            # Redis 공식 이미지 버전 7.2 사용
     network_mode: host          # 컨테이너가 호스트 네트워크 스택을 공유하도록 설정
-                                # → Spring 컨테이너에서 localhost:6379로 요청하면 실제 Redis(호스트 포트 6379)로 연결
 
   spring:
     image: 266735804784.dkr.ecr.ap-northeast-2.amazonaws.com/app-repo:latest  
-                                # ECR에 올라간 Spring 애플리케이션 이미지 사용
     network_mode: host          # Spring 컨테이너도 호스트 네트워크 스택을 사용
-                                # → 애플리케이션이 localhost:6379로 Redis에 연결 가능
 
     depends_on:
       - redis                   # Redis 컨테이너가 시작된 뒤 Spring 컨테이너를 시작하도록 순서만 보장
