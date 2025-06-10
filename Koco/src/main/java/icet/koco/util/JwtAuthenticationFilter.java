@@ -27,10 +27,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().equals("/api/backend/v1/auth/refresh")
-            || request.getRequestURI().equals("/api/backend/v1/auth/callback")
-            || request.getRequestURI().equals("/swagger-ui/index.html#/");
+        String path = request.getRequestURI();
+        // actuator 요청은 아예 필터를 적용하지 않는다
+        if (path.startsWith("/actuator/")) {
+            return true;
+        }
+
+        // 기존 예외 경로들
+        return path.equals("/api/backend/v1/auth/refresh")
+            || path.equals("/api/backend/v1/auth/callback")
+            || path.equals("/swagger-ui/index.html#/");
     }
+
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
