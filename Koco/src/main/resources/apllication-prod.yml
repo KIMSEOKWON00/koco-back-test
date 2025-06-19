@@ -1,5 +1,0 @@
-logging:
-  discord:
-    enabled: true
-    webhook-url: https://discord.com/api/webhooks/1372464453630558221/d7FNPuVXrdne7MzIB0ZrfunlcgaldOb9KxmWAjrxrsub7PsAuXHqOHhwMyTPUpTubIf-
-    config: classpath:logback-spring.xml
