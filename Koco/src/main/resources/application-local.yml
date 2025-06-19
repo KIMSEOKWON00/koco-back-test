@@ -1,0 +1,5 @@
+# 로컬 전용 설정 (application-local.yml)
+
+logging:
+  discord:
+    enabled: false  # 알림 비활성화

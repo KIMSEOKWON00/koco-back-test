@@ -1,0 +1,12 @@
+spring:
+  profiles:
+    active: local  # or prod (배포 시)
+
+# 공통 설정 (application.yml)
+
+logging:
+  level:
+    root: INFO
+
+
+
