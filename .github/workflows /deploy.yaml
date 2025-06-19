@@ -1,0 +1,212 @@
+name: Deploy Spring Boot App
+
+on:
+
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'ECR 이미지 태그 (예: v1.0.0)'
+        required: true
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_HOST: ${{ secrets.ECR_HOST }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+  DEPLOY_ZIP_KEY: spring-app-deploy.zip
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      # ───────────────────────────────────────────────────────────────
+      # 1) Set dynamic S3 bucket and ECR repo name based on branch
+      # ───────────────────────────────────────────────────────────────
+      - name: Configure environment for branch
+        run: |
+          BRANCH=${GITHUB_REF#refs/heads/}
+          if [ "$BRANCH" = "dev" ]; then
+            echo "S3_BUCKET=dev-koco-codedeploy-artifacts" >> $GITHUB_ENV
+            echo "ECR_REPO_NAME=dev-app-repo"               >> $GITHUB_ENV
+            echo "SSM_PATH=/spring/dev/"                    >> $GITHUB_ENV
+            echo "CD_APP_NAME=dev-was-deploy-app"           >> $GITHUB_ENV
+            echo "CD_DG_NAME=dev-was-deploy-group"          >> $GITHUB_ENV
+          else
+            echo "S3_BUCKET=prod-koco-codedeploy-artifacts" >> $GITHUB_ENV
+            echo "ECR_REPO_NAME=prod-app-repo"              >> $GITHUB_ENV
+            echo "SSM_PATH=/spring/prod/"                   >> $GITHUB_ENV
+            echo "CD_APP_NAME=prod-was-deploy-app"          >> $GITHUB_ENV
+            echo "CD_DG_NAME=prod-was-deploy-group"         >> $GITHUB_ENV
+          fi
+
+      # ───────────────────────────────────────────────────────────────
+      # 2) If manual dispatch, check for existing tag
+      # ───────────────────────────────────────────────────────────────
+      - name: Check if tag already exists in ECR
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          FULL_REPO="$ECR_HOST/$ECR_REPO_NAME"
+          echo "🔍 Checking if tag '$IMAGE_TAG' exists at $FULL_REPO..."
+          RESULT=$(aws ecr describe-images \
+            --registry-id ${ECR_HOST%%.*} \
+            --repository-name $ECR_REPO_NAME \
+            --image-ids imageTag=$IMAGE_TAG \
+            --region $AWS_REGION 2>/dev/null || true)
+          if echo "$RESULT" | grep -q imageDigest; then
+            echo "❌ ERROR: Tag '$IMAGE_TAG' already exists in $FULL_REPO."
+            exit 1
+          fi
+
+      # ───────────────────────────────────────────────────────────────
+      # 3) Build & Push Docker image for both dev and main
+      # ───────────────────────────────────────────────────────────────
+      - name: Build and Push Docker image to ECR
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          FULL_REPO="$ECR_HOST/$ECR_REPO_NAME"
+          echo "🔐 Logging in to Amazon ECR at $FULL_REPO..."
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin $ECR_HOST
+
+          echo "🔧 Building Docker image..."
+          docker build -t my-spring-app .
+
+          echo "🏷 Tagging image with version: $IMAGE_TAG"
+          docker tag my-spring-app:latest $FULL_REPO:$IMAGE_TAG
+
+          echo "🏷 Tagging image as latest"
+          docker tag my-spring-app:latest $FULL_REPO:latest
+
+          echo "📤 Pushing image $FULL_REPO:$IMAGE_TAG"
+          docker push $FULL_REPO:$IMAGE_TAG
+
+          echo "📤 Pushing image $FULL_REPO:latest"
+          docker push $FULL_REPO:latest
+
+      # ───────────────────────────────────────────────────────────────
+      # 4) Generate CodeDeploy artifacts dynamically
+      # ───────────────────────────────────────────────────────────────
+      - name: Generate CodeDeploy config files
+        run: |
+          mkdir -p codedeploy/scripts
+
+          # appspec.yml (variables 필요 없음)
+          cat << 'EOF' > codedeploy/appspec.yml
+          version: 0.0
+          os: linux
+
+          files:
+            - source: /
+              destination: /home/ubuntu/deploy
+              overwrite: yes
+
+          permissions:
+            - object: /
+              pattern: "**"
+              owner: ubuntu
+              group: ubuntu
+              mode: 755
+
+          hooks:
+            AfterInstall:
+              - location: scripts/deploy.sh
+                timeout: 500
+                runas: ubuntu
+          EOF
+
+          # docker-compose.yaml (런너에서 $ECR_HOST/$ECR_REPO_NAME 치환)
+          cat << EOF > codedeploy/docker-compose.yaml
+          version: '3.8'
+
+          services:
+            redis:
+              image: redis:7.2
+              network_mode: host
+
+            spring:
+              image: $ECR_HOST/$ECR_REPO_NAME:latest
+              network_mode: host
+              depends_on:
+                - redis
+              env_file:
+                - .env
+              volumes:
+                - /home/ubuntu/logs:/app/logs
+          EOF
+
+          # deploy.sh (인스턴스에서 사용할 변수 바인딩)
+          cat <<EOF > codedeploy/scripts/deploy.sh
+          #!/bin/bash
+          set -euo pipefail
+
+          # GitHub Actions 런너에서 세팅된 값들을 그대로 할당
+          SSM_PATH="${SSM_PATH}"
+          ECR_REPO_NAME="${ECR_REPO_NAME}"
+          ECR_HOST="${ECR_HOST}"
+          AWS_REGION="${AWS_REGION}"
+
+          mkdir -p /home/ubuntu/logs
+          cd /home/ubuntu/deploy
+
+          echo "[INFO] Fetching Spring Boot environment variables from SSM (\$SSM_PATH)..."
+          
+          : > .env
+          aws ssm get-parameters-by-path \
+            --path "\$SSM_PATH" \
+            --with-decryption \
+            --query 'Parameters[*].{Name:Name,Value:Value}' \
+            --output text \
+          | while IFS=$'\t' read -r name value; do
+              [[ -n "\$name" ]] || continue
+              key=\$(basename "\$name" | tr '.' '_' | tr '[:lower:]' '[:upper:]')
+              echo "\$key=\$value" >> .env
+            done
+
+          echo "[INFO] Logging in to ECR (\$ECR_HOST)..."
+          aws ecr get-login-password --region "\$AWS_REGION" \
+            | docker login --username AWS --password-stdin "\$ECR_HOST"
+
+          echo "[INFO] Pulling latest image from ECR..."
+          docker pull "\$ECR_HOST/\$ECR_REPO_NAME:latest"
+
+          echo "[INFO] Shutting down any existing containers..."
+          docker compose down || true
+
+          echo "[INFO] Starting up containers with Docker Compose..."
+          docker compose up -d
+
+          echo "[INFO] Deployment complete."
+          EOF
+
+          chmod +x codedeploy/scripts/deploy.sh
+
+      # ───────────────────────────────────────────────────────────────
+      # 5) Package & Upload to S3, then trigger CodeDeploy
+      # ───────────────────────────────────────────────────────────────
+      - name: Package for CodeDeploy
+        run: |
+          cd codedeploy
+          zip -r ../$DEPLOY_ZIP_KEY .
+
+      - name: Upload to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 cp $DEPLOY_ZIP_KEY s3://$S3_BUCKET/$DEPLOY_ZIP_KEY
+
+      - name: Trigger CodeDeploy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws deploy create-deployment \
+            --application-name $CD_APP_NAME \
+            --deployment-group-name $CD_DG_NAME \
+            --s3-location bucket=$S3_BUCKET,key=$DEPLOY_ZIP_KEY,bundleType=zip \
+            --deployment-config-name CodeDeployDefault.AllAtOnce
