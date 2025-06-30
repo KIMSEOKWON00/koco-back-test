@@ -1,0 +1,25 @@
+version: '3.8'  # Compose 파일 버전 설정
+
+services:
+  redis:
+    image: redis:7.2            # Redis 공식 이미지 버전 7.2 사용
+    network_mode: host          # 컨테이너가 호스트 네트워크 스택을 공유하도록 설정
+                                # → Spring 컨테이너에서 localhost:6379로 요청하면 실제 Redis(호스트 포트 6379)로 연결
+
+  spring:
+    image: 266735804784.dkr.ecr.ap-northeast-2.amazonaws.com/app-repo:latest  
+                                # ECR에 올라간 Spring 애플리케이션 이미지 사용
+    network_mode: host          # Spring 컨테이너도 호스트 네트워크 스택을 사용
+                                # → 애플리케이션이 localhost:6379로 Redis에 연결 가능
+
+    depends_on:
+      - redis                   # Redis 컨테이너가 시작된 뒤 Spring 컨테이너를 시작하도록 순서만 보장
+
+    env_file:
+      - .env                    # 환경변수(.env)를 Spring 컨테이너에 주입
+
+    volumes:
+      - /home/ubuntu/logs:/app/logs  
+                                # 호스트의 /home/ubuntu/logs 디렉터리를
+                                # 컨테이너의 /app/logs 디렉터리에 마운트
+                                # → 애플리케이션 로그를 호스트에서 바로 확인 가능
