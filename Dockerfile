@@ -40,7 +40,6 @@ RUN mkdir -p /opt/scouter/agent.host/conf && \
 
 # Java Agent 설정
 RUN mkdir -p /opt/scouter/agent.java/conf && \
-
     echo 'net_collector_ip=10.1.3.100\n\
     net_collector_udp_port=6100\n\
     net_collector_tcp_port=6100' > /opt/scouter/agent.java/conf/scouter.conf
