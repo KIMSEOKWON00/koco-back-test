@@ -13,6 +13,12 @@ RUN ./gradlew clean build -x test
 # 2️⃣ 런타임 스테이지: Microsoft OpenJDK 21 JRE (Ubuntu 기반)
 FROM mcr.microsoft.com/openjdk/jdk:21-ubuntu
 
+# ── OpenTelemetry Java Agent 설치
+ARG OTEL_JAVA_AGENT_VERSION=1.37.0
+RUN apt-get update && apt-get install -y wget && \
+    wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar \
+         -O /opt/opentelemetry-javaagent.jar
+
 # Scouter 버전 지정
 ARG SCOUTER_VERSION=2.20.0
 ENV SCOUTER_VERSION=${SCOUTER_VERSION}
@@ -35,7 +41,7 @@ RUN mkdir -p /opt/scouter/agent.host/conf && \
 # Java Agent 설정
 RUN mkdir -p /opt/scouter/agent.java/conf && \
 
-    echo 'net_collector_ip=10.3.3.100\n\
+    echo 'net_collector_ip=10.1.3.100\n\
     net_collector_udp_port=6100\n\
     net_collector_tcp_port=6100' > /opt/scouter/agent.java/conf/scouter.conf
 
@@ -48,8 +54,14 @@ COPY --from=builder /build/build/libs/*-SNAPSHOT.jar app.jar
 EXPOSE 8080
 
 # Java Agent 설정 포함 ENTRYPOINT
-ENTRYPOINT ["java", \
-  "--add-opens", "java.base/java.lang=ALL-UNNAMED", \
-  "-javaagent:/opt/scouter/agent.java/scouter.agent.jar", \
-  "-Dscouter.config=/opt/scouter/agent.java/conf/scouter.conf", \
-  "-jar", "app.jar"]
+ENTRYPOINT ["sh","-c","\
+  java \
+    -javaagent:/opt/opentelemetry-javaagent.jar \
+    -Dotel.exporter.otlp.endpoint=http://10.1.3.26:4317 \
+    -Dotel.resource.attributes=service.name=koco-app,service.version=1.0 \
+    -Dotel.logs.exporter=otlp \
+    --add-opens java.base/java.lang=ALL-UNNAMED \
+    -javaagent:/opt/scouter/agent.java/scouter.agent.jar \
+    -Dscouter.config=/opt/scouter/agent.java/conf/scouter.conf \
+    -jar app.jar\
+"]
