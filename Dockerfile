@@ -14,9 +14,9 @@ RUN ./gradlew clean build -x test
 FROM mcr.microsoft.com/openjdk/jdk:21-ubuntu
 
 # ── OpenTelemetry Java Agent 설치
-ARG OTEL_JAVA_AGENT_VERSION=1.37.0
+
 RUN apt-get update && apt-get install -y wget && \
-    wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar \
+    wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.17.0/opentelemetry-javaagent.jar \
          -O /opt/opentelemetry-javaagent.jar
 
 # Scouter 버전 지정
