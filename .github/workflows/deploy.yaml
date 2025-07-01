@@ -136,10 +136,10 @@ jobs:
               env_file:
                 - .env
               environment:
-                OTEL_EXPORTER_OTLP_ENDPOINT: http://10.1.3.26:4317
-                OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-                OTEL_TRACES_SAMPLER:         parentbased_always_on
-                
+                OTEL_EXPORTER_OTLP_ENDPOINT: "10.1.3.26:4317"
+                OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+                OTEL_TRACES_SAMPLER:         "parentbased_always_on"
+
               volumes:
                 - /home/ubuntu/logs:/app/logs
           EOF
