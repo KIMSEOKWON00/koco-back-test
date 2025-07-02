@@ -1,6 +1,8 @@
-# src/main/resources/application-dev.yml
+
 spring:
-  profiles: dev
+  config:
+    activate:
+      on-profile: dev
 
   datasource:
     url: ${DB_URL}
