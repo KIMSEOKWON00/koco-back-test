@@ -57,6 +57,7 @@ ENTRYPOINT ["sh","-c","\
   java \
     -javaagent:/opt/opentelemetry-javaagent.jar \
     -Dotel.exporter.otlp.endpoint=10.1.3.26:4317 \
+    -Dotel.exporter.otlp.metrics.endpoint=10.1.3.26:4317 \
     -Dotel.exporter.otlp.protocol=grpc \
     -Dotel.traces.sampler=parentbased_always_on \
     -Dotel.resource.attributes=service.name=koco-app,service.version=1.0 \
