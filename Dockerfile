@@ -68,7 +68,7 @@ ENTRYPOINT ["sh","-c","\
     -Dotel.metrics.exporter=otlp \
     -Dotel.logs.exporter=otlp \
     --add-opens java.base/java.lang=ALL-UNNAMED \
-    -javaagent:/opt/scouter/agent.java/scouter.agent.jar \
-    -Dscouter.config=/opt/scouter/agent.java/conf/scouter.conf \
+    # -javaagent:/opt/scouter/agent.java/scouter.agent.jar \
+    # -Dscouter.config=/opt/scouter/agent.java/conf/scouter.conf \
     -jar app.jar\
 "]
