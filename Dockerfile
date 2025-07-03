@@ -61,6 +61,9 @@ ENTRYPOINT ["sh","-c","\
     -Dotel.exporter.otlp.protocol=grpc \
     -Dotel.traces.sampler=parentbased_always_on \
     -Dotel.resource.attributes=service.name=koco-app,service.version=1.0 \
+    # ── 메트릭 기능 실험적 활성화 ──
+    -Dotel.experimental.metrics.enabled=true \
+    -Dotel.instrumentation.common.experimental.metric-strategy=push \
     -Dotel.metrics.exporter=otlp \
     -Dotel.logs.exporter=otlp \
     --add-opens java.base/java.lang=ALL-UNNAMED \
