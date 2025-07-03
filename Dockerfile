@@ -64,6 +64,7 @@ ENTRYPOINT ["sh","-c","\
     # ── 메트릭 기능 실험적 활성화 ──
     -Dotel.experimental.metrics.enabled=true \
     -Dotel.instrumentation.common.experimental.metric-strategy=push \
+    -Dotel.instrumentation.runtime-telemetry.emit-experimental-telemetry=true \
     -Dotel.metrics.exporter=otlp \
     -Dotel.logs.exporter=otlp \
     --add-opens java.base/java.lang=ALL-UNNAMED \
