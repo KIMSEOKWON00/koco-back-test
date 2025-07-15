@@ -1,0 +1,172 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.1.9'
+	id 'io.spring.dependency-management' version '1.1.7'
+    id 'jacoco'
+}
+
+group = 'iceT'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+jacoco {
+    toolVersion = "0.8.13"
+}
+repositories {
+	mavenCentral()
+	maven { url = uri("https://jitpack.io") } // 디스코드 알림
+}
+
+dependencies {
+	// Spring
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// DB & JWT
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	implementation 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+	// AWS, Swagger, Dotenv, Discord Log
+	implementation 'io.awspring.cloud:spring-cloud-starter-aws:2.4.4'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+	implementation 'me.paulschwarz:spring-dotenv:3.0.0'
+	implementation 'com.github.napstr:logback-discord-appender:1.0.0'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// QueryDSL (Jakarta)
+	implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+	annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'
+	annotationProcessor 'jakarta.persistence:jakarta.persistence-api:3.1.0'
+	annotationProcessor 'jakarta.annotation:jakarta.annotation-api:2.1.1'
+
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.4.2'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
+
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+
+
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	jvmArgs += ["-XX:+EnableDynamicAgentLoading"]
+    finalizedBy jacocoTestReport            // 테스트 후 리포트 생성
+}
+
+
+def querydslDir = "$buildDir/generated/querydsl"
+
+tasks.withType(JavaCompile).configureEach {
+    options.annotationProcessorGeneratedSourcesDirectory = file(querydslDir)
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs += file(querydslDir)
+        }
+    }
+}
+
+
+tasks.withType(JavaCompile).configureEach {
+	options.annotationProcessorGeneratedSourcesDirectory = file(querydslDir)
+}
+
+
+jacocoTestReport {
+
+    afterEvaluate {
+        classDirectories.setFrom(
+                files(classDirectories.files.collect {
+                    fileTree(dir: it, exclude: [
+                            '**/dto/**',
+                            '**/entity/**',
+                            '**/Q*',
+                            '**/*Builder',
+                            '**/*Dto*',
+                            '**/*Response*',
+                            '**/*Request*',
+                            '**/*$*$*' // 람다 함수 메서드 등 내부 메서드 제외
+                    ])
+                })
+        )
+    }
+
+    // jacocoTestReport가 끝나면 jacocoTestCoverageVerification 동작
+    finalizedBy 'jacocoTestCoverageVerification'
+}
+
+// jacoco 커버리지 검증 설정
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            enabled = true // 커버리지 적용 여부
+            element = 'CLASS' // 커버리지 적용 단위
+
+            excludes = [
+                    '**/dto/**',
+                    '**/entity/**',
+                    '**/Q*',            // QueryDSL Q클래스
+                    '**/*Builder',      // 빌더 클래스
+                    '**/*Dto*',
+                    '**/*Response*',
+                    '**/*Request*'
+            ]
+
+            // 라인 커버리지 설정
+            // 적용 대상 전체 소스 코드들을 한줄 한줄 따졌을 때 테스트 코드가 작성되어 있는 줄의 빈도
+            // 테스트 코드가 작성되어 있는 비율이 90% 이상이어야 함
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.00
+            }
+
+            // 브랜치 커버리지 설정
+            // if-else 등을 활용하여 발생되는 분기들 중 테스트 코드가 작성되어 있는 빈도
+            // 테스트 코드가 작성되어 있는 비율이 90% 이상이어야 함
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.00
+            }
+
+            // 라인 최대 갯수 설정
+            // 빈 줄을 제외하고 하나의 자바 파일에서 작성될 수 있는 최대 라인 갯수
+            // 한 파일에 최대 500줄까지 작성되어야 함
+            limit {
+                counter = 'LINE'
+                value = 'TOTALCOUNT'
+                maximum = 500
+            }
+        }
+    }
+}
